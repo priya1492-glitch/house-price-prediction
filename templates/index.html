@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container">
+    <div class="row g-4 align-items-center hero-grid">
+      <div class="col-lg-7 hero-copy">
+        {% if model_state == 'ready' and is_demo %}
+          <span class="status-pill demo"><span class="dot"></span>Demo model (synthetic data)</span>
+        {% elif model_state == 'ready' %}
+          <span class="status-pill ready"><span class="dot"></span>Model trained on {{ model_meta.dataset_label }}</span>
+        {% elif model_state == 'error' %}
+          <span class="status-pill error"><span class="dot"></span>Saved model could not be loaded</span>
+        {% else %}
+          <span class="status-pill"><span class="dot"></span>Model not trained yet</span>
+        {% endif %}
+
+        <h1 class="mt-3" id="hero-title">Estimate a Bengaluru home's price</h1>
+        <p class="lead">
+          Get a quick, data-informed estimate for an apartment in Bengaluru.
+          Explore local market patterns and compare model results.
+        </p>
+        <div class="d-flex flex-wrap gap-3 hero-actions">
+          <a class="btn btn-accent btn-lg" href="{{ url_for('predict') }}">Start prediction</a>
+          <a class="btn btn-outline-light-strong btn-lg" href="{{ url_for('dashboard') }}">View dashboard</a>
+        </div>
+        <p class="hero-note mb-0">Estimates are for learning and planning, not a professional valuation.</p>
+      </div>
+
+      <div class="col-lg-5">
+        <aside class="quick-estimate-card" aria-labelledby="quick-estimate-title">
+          <h2 id="quick-estimate-title">Quick estimate</h2>
+          {% if model_ready %}
+          <p class="quick-estimate-intro">Start with the essentials. You can add more details on the next page.</p>
+          <form id="quick-estimate-form" method="post" action="{{ url_for('predict') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="bath" id="quick-bath" value="2" data-bath-max="{{ quick_bath_max }}">
+            <input type="hidden" name="balcony" value="1">
+            <input type="hidden" name="is_ready_to_move" value="1">
+            <input type="hidden" name="area_type" value="Super built-up">
+
+            <div class="mb-3">
+              <label class="form-label" for="quick-total-sqft">Area (sq ft)</label>
+              <input class="form-control" type="number" inputmode="decimal" id="quick-total-sqft"
+                     name="total_sqft" min="300" max="10000" step="any" required
+                     aria-describedby="quick-area-help quick-area-error">
+              <div class="form-text" id="quick-area-help">Enter an area between 300 and 10,000 sq ft.</div>
+              <div class="invalid-feedback" id="quick-area-error">Please enter an area between 300 and 10,000 sq ft.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="quick-bhk-input">BHK</label>
+              <input class="form-control" type="number" inputmode="numeric" id="quick-bhk-input"
+                     name="bhk" min="1" max="10" step="1" value="2" required
+                     aria-describedby="quick-bhk-help quick-bhk-error">
+              <div class="form-text" id="quick-bhk-help">Choose between 1 and 10 bedrooms.</div>
+              <div class="invalid-feedback" id="quick-bhk-error">Please enter a whole number from 1 to 10.</div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="quick-location">Location</label>
+              <select class="form-select" id="quick-location" name="location" required
+                      aria-describedby="quick-location-error">
+                <option value="" selected disabled>Select a Bengaluru location</option>
+                {% for location in locations %}
+                <option value="{{ location }}">{{ location }}</option>
+                {% endfor %}
+              </select>
+              <div class="invalid-feedback" id="quick-location-error">Please choose a location from the list.</div>
+            </div>
+
+            <button class="btn btn-accent btn-lg w-100" type="submit" id="quick-estimate-submit">
+              <span class="spinner-border" role="status" aria-hidden="true"></span>
+              <span class="btn-text">Estimate price</span>
+            </button>
+          </form>
+          {% else %}
+          <div class="quick-estimate-disabled" role="status">
+            <p class="mb-0">Quick estimates are unavailable until a prediction model is trained and ready.</p>
+          </div>
+          {% endif %}
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if home_stats %}
+<section class="stats-strip" aria-label="Dataset statistics">
+  <div class="container">
+    <div class="row g-3">
+      <div class="col-6 col-lg-3">
+        <div class="home-stat">
+          <span class="home-stat-value">{{ "{:,}".format(home_stats.listings) }}</span>
+          <span class="home-stat-label">Listings analyzed</span>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="home-stat">
+          <span class="home-stat-value">{{ "{:,}".format(home_stats.localities) }}</span>
+          <span class="home-stat-label">Bengaluru localities</span>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="home-stat">
+          <span class="home-stat-value">{{ "{:,}".format(home_stats.models) }}</span>
+          <span class="home-stat-label">ML models compared</span>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="home-stat">
+          <span class="home-stat-value">{{ home_stats.median_price|money(cur) }}</span>
+          <span class="home-stat-label">Median listing price</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" data-reveal>
+  <div class="container">
+    <h2 class="section-title">What this project does</h2>
+    <p class="section-sub">A complete regression workflow, from housing data to a working estimate.</p>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <article class="card-plain">
+          <div class="icon-chip" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h2v18H3V3zm4 10h3v8H7v-8zm5-6h3v14h-3V7zm5 4h3v10h-3V11z"/></svg></div>
+          <h3>Learns from real sales</h3>
+          <p>Trained on Bengaluru property records with prices in Indian rupees.</p>
+        </article>
+      </div>
+      <div class="col-md-4">
+        <article class="card-plain">
+          <div class="icon-chip" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6z"/></svg></div>
+          <h3>Compares two models</h3>
+          <p>Linear Regression and Random Forest are scored with cross-validation; the better model powers each estimate.</p>
+        </article>
+      </div>
+      <div class="col-md-4">
+        <article class="card-plain">
+          <div class="icon-chip" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v4H4V4zm0 6h7v10H4V10zm9 0h7v4h-7v-4zm0 6h7v4h-7v-4z"/></svg></div>
+          <h3>Shows its results</h3>
+          <p>The dashboard brings together price statistics, model scores, feature importance, and sample predictions.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if top_localities %}
+<section class="section section-white" data-reveal>
+  <div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+      <div>
+        <h2 class="section-title">Popular localities</h2>
+        <p class="section-sub mb-0">Average listing price per sq ft from the training dataset.</p>
+      </div>
+      <a class="text-link" href="{{ url_for('predict') }}">Explore all locations <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="row g-3">
+      {% for item in top_localities if item.location|lower != 'other' %}
+      <div class="col-sm-6 col-lg-4">
+        <a class="locality-card" href="{{ url_for('predict') }}">
+          <span class="locality-name">{{ item.location }}</span>
+          <span class="locality-price">{{ item.avg_price_per_sqft|money(cur) }}<small> / sq ft</small></span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" data-reveal>
+  <div class="container">
+    <div class="row g-5 align-items-start">
+      <div class="col-lg-6">
+        <h2 class="section-title">How to get an estimate</h2>
+        <ol class="steps mt-4">
+          <li><strong>Describe the property</strong>Enter its area, bedrooms, bathrooms, and availability.</li>
+          <li><strong>Choose its location</strong>Select a Bengaluru location and area type from the dataset.</li>
+          <li><strong>Read the estimate</strong>See a price and the model's typical error to understand its uncertainty.</li>
+        </ol>
+        <a class="btn btn-navy mt-2" href="{{ url_for('predict') }}">Estimate a price</a>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="section-title">Built with</h2>
+        <ul class="built-with mt-4">
+          <li><strong>Machine learning:</strong> pandas, NumPy, scikit-learn, joblib</li>
+          <li><strong>Backend:</strong> Python and Flask</li>
+          <li><strong>Frontend:</strong> HTML5, CSS3, JavaScript, Bootstrap 5</li>
+          <li><strong>Dataset:</strong> Bengaluru housing records with prices in INR</li>
+          <li><strong>Charts:</strong> Chart.js, Matplotlib, and Seaborn</li>
+        </ul>
+        <a class="btn btn-outline-secondary" href="{{ url_for('about') }}">Read about the project</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

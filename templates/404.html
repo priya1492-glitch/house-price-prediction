@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Page not found{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container text-center">
+    <p class="display-font display-3 mb-0">404</p>
+    <h1 class="h3">We couldn't find that page</h1>
+    <p class="mx-auto text-muted">The address may be mistyped, or the page may have moved.</p>
+    <div class="d-flex flex-wrap gap-2 justify-content-center">
+      <a class="btn btn-accent" href="{{ url_for('index') }}">Go to the home page</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('predict') }}">Predict a price</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

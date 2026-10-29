@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="container">
+    <h1>About this project</h1>
+    <p>A Bengaluru-focused regression demo that estimates property prices from area and location features.</p>
+  </div>
+</div>
+
+<section class="section">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Objective</h2>
+          <p>Estimate a Bengaluru property's price using its area, BHK, bathrooms, balconies, availability and locality.</p>
+          <p>It is a <strong>regression</strong> problem: the target (price) is a continuous number.</p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Dataset</h2>
+          <p>The supplied cleaned Bengaluru dataset contains <strong>9,729 property records</strong>. Prices are shown in <strong>Indian rupees</strong>.</p>
+          <p>This project uses property area, BHK, bathrooms, balconies, readiness, area type and Bengaluru location.</p>
+          <p class="mb-0">Place the cleaned file at <code>data/bengaluru_clean.csv</code> and run <code>python train_model.py</code> to retrain.</p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Machine learning approach</h2>
+          <ul>
+            <li><strong>Preprocessing:</strong> missing numbers are filled with the median and missing categories with the most common value. Numbers are standardized and locations/area types are one-hot encoded. These steps are fitted on training data only to avoid data leakage.</li>
+            <li><strong>Linear Regression:</strong> a simple, fast baseline that fits a weighted sum of the features.</li>
+            <li><strong>Random Forest Regressor:</strong> many decision trees averaged together. It can capture non-linear effects and feature interactions.</li>
+            <li><strong>Model selection:</strong> 5-fold cross-validation on the training set; the lowest RMSE wins. The test set is used only for the final report.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Evaluation metrics</h2>
+          <ul>
+            <li><strong>MAE</strong> (mean absolute error): the average size of the mistakes, in rupees.</li>
+            <li><strong>RMSE</strong> (root mean squared error): like MAE but penalises large mistakes more.</li>
+            <li><strong>R²</strong>: the share of price variation the model explains. 1.0 is perfect; 0 is no better than guessing the average.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Real-world uses</h2>
+          <ul class="mb-0">
+            <li>Giving buyers and sellers a quick first price idea.</li>
+            <li>Helping agents and investors compare properties and neighborhoods.</li>
+            <li>Supporting budgeting and planning for development or renovation.</li>
+            <li>Teaching how a full machine learning workflow fits together.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-plain">
+          <h2 class="h4">Limitations</h2>
+          <ul class="mb-0">
+            <li>The data represents Bengaluru listings and may not reflect today's market or other cities.</li>
+            <li>Only the listed features are used. Condition, renovations, views and market timing are not captured.</li>
+            <li>An estimate is not an appraisal. The typical error is shown with each result.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <a class="btn btn-accent" href="{{ url_for('predict') }}">Try the predictor</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

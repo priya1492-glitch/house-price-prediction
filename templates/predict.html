@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Predict Price{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="container">
+    <h1>Predict a house price</h1>
+    <p>Fill in the details below. All fields are required.</p>
+  </div>
+</div>
+
+<section class="section">
+  <div class="container">
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert" id="form-error">
+      {{ error_message }}
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <form class="form-card" id="predict-form" method="post" action="{{ url_for('predict') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <fieldset {% if not model_ready %}disabled{% endif %}>
+            {% for group in groups %}
+            <fieldset class="mb-4">
+              <legend>{{ group.title }}</legend>
+              <p class="legend-sub">{{ group.subtitle }}</p>
+              <div class="row g-3">
+                {% for spec in group.fields %}
+                {% set err = errors.get(spec.name) %}
+                <div class="col-sm-6">
+                  <label class="form-label" for="{{ spec.name }}">{{ spec.label }}</label>
+
+                  {% if spec.name in field_options %}
+                  <select class="form-select {% if err %}is-invalid{% endif %}" id="{{ spec.name }}" name="{{ spec.name }}"
+                          required aria-describedby="{{ spec.name }}-help {{ spec.name }}-error">
+                    <option value="" {% if not values.get(spec.name) %}selected{% endif %} disabled>Select an option</option>
+                    {% for option in field_options[spec.name] %}
+                    <option value="{{ option.value }}" {% if values.get(spec.name)|string == option.value|string %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                  </select>
+
+                  {% else %}
+                  <input class="form-control {% if err %}is-invalid{% endif %}" type="number"
+                         inputmode="{% if spec.type.__name__ == 'int' %}numeric{% else %}decimal{% endif %}"
+                         id="{{ spec.name }}" name="{{ spec.name }}" min="{{ spec.min }}" max="{{ spec.max }}"
+                         step="{% if spec.type.__name__ == 'int' %}1{% else %}any{% endif %}"
+                         value="{{ values.get(spec.name, '') }}" required
+                         aria-describedby="{{ spec.name }}-help {{ spec.name }}-error">
+                  {% endif %}
+
+                  <div class="form-text" id="{{ spec.name }}-help">{{ spec.help }}</div>
+                  <div class="invalid-feedback" id="{{ spec.name }}-error">{{ err or 'Please enter a valid value.' }}</div>
+                </div>
+                {% endfor %}
+              </div>
+            </fieldset>
+            {% endfor %}
+
+            <button class="btn btn-accent btn-lg w-100" type="submit" id="predict-submit">
+              <span class="spinner-border" role="status" aria-hidden="true"></span>
+              <span class="btn-text">Estimate price</span>
+            </button>
+          </fieldset>
+        </form>
+      </div>
+
+      <div class="col-lg-5">
+        <aside class="result-panel" aria-live="polite" id="result-panel">
+          <h2>Estimated price</h2>
+          {% if result %}
+            <div class="result-price">{{ result.price|money(cur) }}</div>
+            {% if result.typical_error %}
+            <p class="muted mb-0">The model's typical error on houses it had not seen is about
+              {{ result.typical_error|money(cur) }}, so treat this as a rough guide.</p>
+            {% endif %}
+            <dl>
+              <dt>Model used</dt><dd>{{ result.model }}</dd>
+              {% for item in result.inputs %}
+              <dt>{{ item.label }}</dt><dd>{{ item.value }}</dd>
+              {% endfor %}
+            </dl>
+            {% if is_demo %}
+            <p class="muted mt-3 mb-0"><strong>Demo only:</strong> this model was trained on synthetic data, so the number is not a real market estimate.</p>
+            {% elif model_meta.dataset_source == 'bengaluru' %}
+            <p class="muted mt-3 mb-0">This estimate uses historical Bengaluru listings and is a rough guide, not a current market valuation. Prices are shown in Indian rupees.</p>
+            {% endif %}
+          {% elif model_ready %}
+            <div class="result-empty">
+              <p class="muted mb-0">Your estimate will appear here after you submit the form.</p>
+            </div>
+          {% else %}
+            <div class="result-empty">
+              <p class="muted">No model is available yet, so predictions are switched off.</p>
+              <p class="muted mb-0">Add the Bengaluru CSV as <code>data/bengaluru_clean.csv</code>, then run <code>python train_model.py</code>. See the README for details.</p>
+            </div>
+          {% endif %}
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

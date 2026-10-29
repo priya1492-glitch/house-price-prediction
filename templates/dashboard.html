@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="container">
+    <h1>Model dashboard</h1>
+    <p>Dataset statistics, model performance and example predictions.</p>
+  </div>
+</div>
+
+<section class="section">
+  <div class="container">
+  {% if not metrics %}
+    <div class="empty-state text-center">
+      <h2 class="h4">
+        {% if model_state == 'error' %}The saved model could not be loaded{% else %}No trained model yet{% endif %}
+      </h2>
+      <p class="mx-auto mb-0">
+        The dashboard fills in after you train the models. Add the Bengaluru dataset as
+        <code>data/bengaluru_clean.csv</code>, then run:
+      </p>
+      <pre class="text-start d-inline-block mt-3 mb-3">python train_model.py</pre>
+      <p class="mx-auto text-muted mb-0">Only want to preview the interface? Run <code>python train_model.py --demo</code> (synthetic data, clearly labeled).</p>
+    </div>
+  {% else %}
+    {% set st = metrics.dataset_stats %}
+    {% set meta = metrics.meta %}
+
+    <p class="text-muted mb-4">
+      Trained on <strong>{{ meta.dataset_label }}</strong> - {{ meta.n_train }} training rows, {{ meta.n_test }} test rows.
+      Selected model: <strong>{{ meta.best_model }}</strong> ({{ meta.selection_rule }}).
+    </p>
+
+    <h2 class="h4 mb-3">Dataset statistics</h2>
+    <div class="row g-3 mb-5">
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ '{:,}'.format(st.rows) }}</div><div class="stat-label">Houses in dataset</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ st.price_mean|money(cur) }}</div><div class="stat-label">Average price</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ st.price_median|money(cur) }}</div><div class="stat-label">Median price</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ '{:,.0f}'.format(st.avg_living_area) }} sq ft</div><div class="stat-label">Average property area</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ st.price_min|money(cur) }}</div><div class="stat-label">Lowest price</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ st.price_max|money(cur) }}</div><div class="stat-label">Highest price</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ st.price_std|money(cur) }}</div><div class="stat-label">Price standard deviation</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-value">{{ '{:.0f}'.format(st.median_bhk) }}</div><div class="stat-label">Median bedrooms (BHK)</div></div></div>
+    </div>
+
+    <h2 class="h4 mb-3">Model performance</h2>
+    <div class="table-responsive mb-2">
+      <table class="table table-clean table-bordered bg-white">
+        <caption class="visually-hidden">Model performance metrics</caption>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">MAE</th>
+            <th scope="col">RMSE</th>
+            <th scope="col">R²</th>
+            <th scope="col">Cross-validated RMSE</th>
+            <th scope="col">Train R²</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for name, m in metrics.models.items() %}
+          <tr>
+            <th scope="row">{{ name }}{% if name == meta.best_model %}<span class="best-badge">Selected</span>{% endif %}</th>
+            <td>{{ m.mae|money(cur) }}</td>
+            <td>{{ m.rmse|money(cur) }}</td>
+            <td>{{ '%.3f'|format(m.r2) }}</td>
+            <td>{{ m.cv_rmse_mean|money(cur) }} <span class="text-muted">&plusmn; {{ m.cv_rmse_std|money(cur) }}</span></td>
+            <td>{{ '%.3f'|format(m.train_r2) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted small mb-5">MAE, RMSE and R² are measured on the {{ meta.n_test }} held-out test houses. Lower MAE/RMSE and higher R² are better. A large gap between train R² and test R² suggests overfitting.</p>
+
+    <h2 class="h4 mb-3">Charts</h2>
+    <div class="row g-4 mb-5">
+      <div class="col-lg-6"><div class="chart-card"><h3>House price distribution</h3>
+        <div class="chart-wrap"><canvas id="chart-hist" role="img" aria-label="Histogram of house prices"></canvas></div></div></div>
+      <div class="col-lg-6"><div class="chart-card"><h3>Living area vs price</h3>
+        <div class="chart-wrap"><canvas id="chart-scatter" role="img" aria-label="Scatter plot of living area against price"></canvas></div></div></div>
+      <div class="col-lg-6"><div class="chart-card"><h3>Model comparison: error (lower is better)</h3>
+        <div class="chart-wrap"><canvas id="chart-models" role="img" aria-label="Bar chart comparing MAE and RMSE of both models"></canvas></div></div></div>
+      <div class="col-lg-6"><div class="chart-card"><h3>Random Forest feature importance</h3>
+        <div class="chart-wrap"><canvas id="chart-importance" role="img" aria-label="Bar chart of the most important features"></canvas></div></div></div>
+    </div>
+    <p class="chart-fallback d-none" id="chart-fallback">The interactive charts could not load (Chart.js is fetched from a CDN, so an internet connection is needed). The tables on this page still work.</p>
+
+    <h2 class="h4 mb-3">Sample predictions vs actual prices</h2>
+    <p class="text-muted">Randomly chosen houses from the test set, which the model never saw during training.</p>
+    <div class="table-responsive mb-5">
+      <table class="table table-clean table-striped table-bordered bg-white">
+        <caption class="visually-hidden">Sample predictions compared with actual prices</caption>
+        <thead>
+          <tr><th scope="col">Bengaluru location</th><th scope="col">Property area</th><th scope="col">Actual</th><th scope="col">Predicted</th><th scope="col">Difference</th><th scope="col">Error %</th></tr>
+        </thead>
+        <tbody>
+        {% for s in metrics.sample_predictions %}
+          <tr>
+            <td>{{ s.location }}</td>
+            <td>{{ '{:,.0f}'.format(s.living_area) }} sq ft</td>
+            <td>{{ s.actual|money(cur) }}</td>
+            <td>{{ s.predicted|money(cur) }}</td>
+            <td>{{ s.error|money(cur) }}</td>
+            <td>{{ '%+.1f'|format(s.pct_error) }}%</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if images %}
+    <h2 class="h4 mb-3">Training figures (Matplotlib &amp; Seaborn)</h2>
+    <p class="text-muted">Static images saved by <code>train_model.py</code>.</p>
+    <div class="row g-4 gallery">
+      {% for img in images %}
+      <div class="col-md-6"><figure class="mb-0">
+        <img src="{{ url_for('static', filename=img.file) }}" alt="{{ img.title }}" loading="lazy">
+        <figcaption>{{ img.title }}</figcaption></figure></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <script type="application/json" id="dashboard-data">{{ chart_data|tojson }}</script>
+  {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if metrics %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endif %}
+{% endblock %}
